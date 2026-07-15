@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Auditoría de Parámetros — Allegion Planta Tecate</title>
-<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.7.1/lib/msal-browser.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -378,6 +378,9 @@ let msalApp = null;
 let spToken = null;
 
 async function ensureToken(interactive) {
+  if (typeof msal === 'undefined') {
+    throw new Error('La librería de login (MSAL) no cargó. Revisa tu conexión a internet y recarga la página.');
+  }
   if (!msalApp) {
     msalApp = new msal.PublicClientApplication(MSAL_CONFIG);
     await msalApp.initialize();
