@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Auditoría de Parámetros — Allegion Planta Tecate</title>
 <script>
-/* MSAL incrustado (sin depender de CDN externo) */
+/* MSAL incrustado */
 /*! @azure/msal-browser v3.7.1 2024-01-23 */
 "use strict";!function(e,t){"object"==typeof exports&&"undefined"!=typeof module?t(exports):"function"==typeof define&&define.amd?define(["exports"],t):t((e="undefined"!=typeof globalThis?globalThis:e||self).msal={})}(this,(function(e){
 /*! @azure/msal-common v14.6.1 2024-01-23 */
@@ -446,6 +446,29 @@ const SP_SCOPE = ['https://' + TENANT_HOST + '/AllSites.Manage'];
 
 let msalApp = null;
 let spToken = null;
+// Mapeo Title (display) → InternalName real de la lista.
+// Se llena automáticamente al cargar, así funciona sin importar
+// si los internal names son 'Area' o 'field_2', etc.
+let FIELD_MAP = {};
+
+async function loadFieldMap() {
+  await ensureToken(false);
+  const res = await fetch(
+    `${SP_SITE}/_api/web/lists/getbytitle('${SP_LIST}')/fields?$select=Title,InternalName,Hidden,ReadOnlyField&$filter=Hidden eq false and ReadOnlyField eq false`,
+    { headers: spHeaders() }
+  );
+  if (!res.ok) throw new Error('No se pudo leer el esquema de la lista: HTTP ' + res.status);
+  const j = await res.json();
+  const map = {};
+  (j.value || []).forEach(f => { map[f.Title] = f.InternalName; });
+  FIELD_MAP = map;
+  return map;
+}
+
+// Traduce un nombre "lógico" (Title) al InternalName real
+function fld(title) {
+  return FIELD_MAP[title] || title;  // fallback al mismo nombre si no está mapeado
+}
 
 async function ensureToken(interactive) {
   if (typeof msal === 'undefined') {
@@ -533,6 +556,7 @@ let spOnline = false;
   try {
     await ensureToken(false);
     spOnline = await checkSP();
+    await loadFieldMap();   // mapea Title → internal name real
     loadCatalogs();
   } catch (e) {
     // No hay sesión: muestra botón de login
@@ -557,6 +581,7 @@ function showLoginButton() {
       await ensureToken(true);
       btn.remove();
       await checkSP();
+      await loadFieldMap();
       loadCatalogs();
       showToast('✓ Sesión iniciada', 'ok');
     } catch (e) {
@@ -923,9 +948,14 @@ async function saveAudit() {
     await ensureToken(true);  // asegura token (pide login si hace falta)
     const digest = await spDigest();
 
-    // Payload moderno: sin __metadata. SharePoint infiere el tipo.
+    // Payload: traduce cada nombre lógico → InternalName real (field_N)
+    // usando el mapa que cargamos de la lista. Title siempre es 'Title'.
     const payload = {};
-    Object.entries(data).forEach(([k, v]) => { if (v !== null && v !== undefined) payload[k] = v; });
+    Object.entries(data).forEach(([k, v]) => {
+      if (v === null || v === undefined) return;
+      const internal = (k === 'Title') ? 'Title' : fld(k);
+      payload[internal] = v;
+    });
 
     const res = await fetch(`${SP_SITE}/_api/web/lists/getbytitle('${SP_LIST}')/items`, {
       method: 'POST',
