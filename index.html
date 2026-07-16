@@ -165,7 +165,7 @@ select.sb-ctrl { appearance:none; -webkit-appearance:none; background-image:url(
 /* ── MAIN ── */
 .main { padding:20px 22px 44px; }
 
-.col-hdr { display:grid; grid-template-columns:38px 1fr 108px 132px 42px; gap:6px; padding:9px 14px; background:var(--navy); border-radius:8px 8px 0 0; }
+.col-hdr { display:grid; grid-template-columns:34px 1fr 118px 120px 38px; gap:6px; padding:9px 14px; background:var(--navy); border-radius:8px 8px 0 0; }
 .ch { font-size:9px; font-weight:700; color:rgba(255,255,255,.35); letter-spacing:.09em; text-transform:uppercase; }
 
 #params-container > .sec-card { background:var(--white); overflow:hidden; }
@@ -174,7 +174,7 @@ select.sb-ctrl { appearance:none; -webkit-appearance:none; background-image:url(
 
 .sec-lbl { background:#F5F7F9; border-bottom:1px solid var(--border); border-left:3px solid var(--orange); padding:7px 14px; font-size:9px; font-weight:700; color:var(--navy-mid); letter-spacing:.1em; text-transform:uppercase; }
 
-.p-row { display:grid; grid-template-columns:38px 1fr 108px 132px 42px; gap:6px; align-items:center; padding:10px 14px; border-bottom:1px solid var(--border); border-left:3px solid transparent; transition:background .1s; }
+.p-row { display:grid; grid-template-columns:34px 1fr 118px 120px 38px; gap:8px; align-items:center; padding:6px 14px; border-bottom:1px solid var(--border); border-left:3px solid transparent; transition:background .1s; }
 .p-row:last-child { border-bottom:none; }
 .p-row:hover { background:#FAFBFC; }
 .p-row.crit { border-left-color:var(--err); }
@@ -182,14 +182,15 @@ select.sb-ctrl { appearance:none; -webkit-appearance:none; background-image:url(
 .p-row.lat  { border-left-color:#7C3AED; }
 
 .p-num  { font-size:11px; font-weight:700; color:var(--text-mut); text-align:center; }
-.p-name { font-size:12px; font-weight:600; color:var(--text); line-height:1.3; }
-.p-tags { display:flex; gap:4px; margin-top:3px; flex-wrap:wrap; }
+.p-namewrap { display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+.p-name { font-size:12px; font-weight:600; color:var(--text); line-height:1.25; }
+.p-tags { display:inline-flex; gap:4px; }
 .tag    { font-size:8px; font-weight:700; padding:1px 6px; border-radius:10px; letter-spacing:.04em; }
 .tag-c  { background:#FDEBEE; color:#9A1826; }
 .tag-s  { background:var(--orange-bg); color:#A34400; }
 .tag-l  { background:#EDE7F6; color:#5B21B6; }
 .p-spec { font-size:11px; font-weight:600; color:var(--text-mid); line-height:1.3; }
-.p-unit { font-size:9px; color:var(--text-mut); margin-top:1px; }
+.p-tol { font-size:9px; font-weight:600; color:var(--text-mut); margin-left:5px; }
 
 .p-inp { width:100%; border:1.5px solid var(--border); border-radius:6px; padding:7px 8px; font-size:13px; font-weight:600; text-align:center; outline:none; font-family:inherit; background:#F7F9FA; color:var(--text); transition:all .15s; -webkit-appearance:none; }
 .p-inp:focus { border-color:var(--orange); background:white; box-shadow:0 0 0 2.5px rgba(248,103,0,.18); }
@@ -219,6 +220,19 @@ input.firma-sel { cursor:text; background-image:none; padding-right:10px; }
 .btn-save:hover:not(:disabled)  { background:var(--orange-dk); box-shadow:0 4px 18px rgba(248,103,0,.45); transform:translateY(-1px); }
 .btn-save:active:not(:disabled) { transform:none; }
 .btn-save:disabled { opacity:.4; cursor:not-allowed; }
+.btn-pdf { background:#fff; color:var(--navy); font-size:13px; font-weight:700; padding:12px 22px; border:1.5px solid var(--border); border-radius:7px; cursor:pointer; font-family:inherit; transition:all .15s; display:flex; align-items:center; gap:7px; white-space:nowrap; }
+.btn-pdf:hover { border-color:var(--orange); color:var(--orange); }
+
+/* ── Impresión / PDF ── */
+@media print {
+  .sidebar, .topnav, .banner, .save-card, .nav-new, #btn-login, .col-hdr .ch:last-child, .p-dot-wrap { display:none !important; }
+  body, .layout, .main { background:#fff !important; display:block !important; padding:0 !important; margin:0 !important; }
+  .print-header { display:block !important; }
+  .p-inp { border:none !important; background:transparent !important; font-weight:700 !important; box-shadow:none !important; }
+  .sec-card, .p-row, .firmas-card { break-inside:avoid; page-break-inside:avoid; }
+  .p-row { padding:4px 8px !important; }
+}
+.print-header { display:none; }
 
 /* ── TOAST ── */
 .toast { position:fixed; bottom:28px; right:28px; padding:14px 20px; border-radius:8px; font-size:13px; font-weight:600; box-shadow:0 6px 28px rgba(0,0,0,.22); transform:translateY(90px); opacity:0; pointer-events:none; transition:all .4s cubic-bezier(.34,1.56,.64,1); z-index:999; max-width:400px; line-height:1.4; }
@@ -271,7 +285,7 @@ input.firma-sel { cursor:text; background-image:none; padding-right:10px; }
   <div class="nav-sep-v"></div>
   <div class="nav-brand">
     <div class="nav-title">Auditoría de Parámetros</div>
-    <div class="nav-sub">Planta Tecate · Inyección Zamak</div>
+    <div class="nav-sub">Planta Tecate</div>
   </div>
   <div class="nav-sp">
     <div class="sp-dot checking" id="sp-dot"></div>
@@ -405,9 +419,14 @@ input.firma-sel { cursor:text; background-image:none; padding-right:10px; }
         <div class="save-stat" id="save-stat">Captura los 27 parámetros antes de guardar.</div>
         <div class="save-meta" id="save-meta"></div>
       </div>
-      <button class="btn-save" id="btn-save" onclick="saveAudit()">
-        GUARDAR AUDITORÍA
-      </button>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn-pdf" id="btn-pdf" onclick="emitirPDF()">
+          📄 PDF
+        </button>
+        <button class="btn-save" id="btn-save" onclick="saveAudit()">
+          GUARDAR AUDITORÍA
+        </button>
+      </div>
     </div>
 
   </main>
@@ -430,6 +449,7 @@ const CAT_AREAS    = 'Cat_Areas';     // catálogo: Title = nombre del área
 const CAT_PERSONAL = 'Cat_Personal';  // catálogo: Title = nombre, Rol = choice
 const CAT_MAQUINAS = 'Cat_Maquinas';  // catálogo: Title = nombre de máquina
 const CAT_NOPARTE  = 'Cat_NoParte';   // catálogo: Title = número de parte
+const CAT_SPECS    = 'Cat_Especificaciones';  // Title=ID param, LSL, USL, SpecTexto, Tolerancia
 const CIRC         = 2 * Math.PI * 21;
 
 // ── MSAL (login Microsoft) ──────────────────────────
@@ -450,24 +470,84 @@ let spToken = null;
 // Se llena automáticamente al cargar, así funciona sin importar
 // si los internal names son 'Area' o 'field_2', etc.
 let FIELD_MAP = {};
+let FIELD_TYPES = {};
 
 async function loadFieldMap() {
   await ensureToken(false);
   const res = await fetch(
-    `${SP_SITE}/_api/web/lists/getbytitle('${SP_LIST}')/fields?$select=Title,InternalName,Hidden,ReadOnlyField&$filter=Hidden eq false and ReadOnlyField eq false`,
+    `${SP_SITE}/_api/web/lists/getbytitle('${SP_LIST}')/fields?$select=Title,InternalName,TypeAsString,Hidden,ReadOnlyField&$filter=Hidden eq false and ReadOnlyField eq false`,
     { headers: spHeaders() }
   );
   if (!res.ok) throw new Error('No se pudo leer el esquema de la lista: HTTP ' + res.status);
   const j = await res.json();
-  const map = {};
-  (j.value || []).forEach(f => { map[f.Title] = f.InternalName; });
+  const map = {}, types = {};
+  (j.value || []).forEach(f => { map[f.Title] = f.InternalName; types[f.Title] = f.TypeAsString; });
   FIELD_MAP = map;
+  FIELD_TYPES = types;
   return map;
+}
+
+// Convierte el valor al tipo que la columna espera realmente
+function coerce(title, v) {
+  const t = FIELD_TYPES[title];
+  if (v === null || v === undefined || v === '') return null;
+  if (t === 'Number' || t === 'Currency') {
+    const n = parseFloat(String(v).replace(',', '.'));
+    return isNaN(n) ? null : n;
+  }
+  if (t === 'DateTime') {
+    return v;  // ya viene en ISO
+  }
+  // Text, Note, Choice, etc → string
+  return String(v);
 }
 
 // Traduce un nombre "lógico" (Title) al InternalName real
 function fld(title) {
   return FIELD_MAP[title] || title;  // fallback al mismo nombre si no está mapeado
+}
+
+// Carga rangos/tolerancias desde la lista Cat_Especificaciones (si existe).
+// Actualiza el array PARAMS. Si la lista no existe, deja los valores por defecto.
+async function loadSpecs() {
+  try {
+    await ensureToken(false);
+    // Lee el esquema de la lista de specs para mapear sus columnas
+    const fRes = await fetch(
+      `${SP_SITE}/_api/web/lists/getbytitle('${CAT_SPECS}')/fields?$select=Title,InternalName&$filter=Hidden eq false and ReadOnlyField eq false`,
+      { headers: spHeaders() }
+    );
+    if (!fRes.ok) throw new Error('no specs list');
+    const fMap = {};
+    (await fRes.json()).value.forEach(f => { fMap[f.Title] = f.InternalName; });
+    const cLSL = fMap['LSL'] || 'LSL';
+    const cUSL = fMap['USL'] || 'USL';
+    const cTol = fMap['Tolerancia'] || 'Tolerancia';
+    const cSpec = fMap['SpecTexto'] || 'SpecTexto';
+
+    // Trae los items
+    const iRes = await fetch(
+      `${SP_SITE}/_api/web/lists/getbytitle('${CAT_SPECS}')/items?$select=Title,${cLSL},${cUSL},${cTol},${cSpec}&$top=100`,
+      { headers: spHeaders() }
+    );
+    if (!iRes.ok) throw new Error('no specs items');
+    const items = (await iRes.json()).value || [];
+
+    let updated = 0;
+    items.forEach(it => {
+      const p = PARAMS.find(x => x.sp === it.Title);
+      if (!p) return;
+      const lsl = it[cLSL], usl = it[cUSL];
+      if (lsl !== null && lsl !== undefined && lsl !== '') p.min = parseFloat(lsl);
+      if (usl !== null && usl !== undefined && usl !== '') p.max = parseFloat(usl);
+      if (it[cTol])  p.tol  = it[cTol];
+      if (it[cSpec]) p.spec = it[cSpec];
+      updated++;
+    });
+    console.log(`[Specs] ${updated} parámetros actualizados desde ${CAT_SPECS}`);
+  } catch (e) {
+    console.warn('[Specs] usando valores por defecto (lista no encontrada):', e.message);
+  }
 }
 
 async function ensureToken(interactive) {
@@ -509,12 +589,12 @@ function spHeaders(extra) {
 //  27 PARÁMETROS — internal names REALES de la lista
 // ═══════════════════════════════════════════════════
 const PARAMS = [
-  { id:1,  sp:'P01_PesoLlenar',           name:'Peso a llenar (piezas + rebosaderos)', spec:'592 grs',       min:582,  max:602,  unit:'grs',  type:'normal',   section:'Pesos & Dimensiones',     isText:false },
-  { id:2,  sp:'P02_PesoColada',           name:'Peso de la colada',                    spec:'274 grs',       min:264,  max:284,  unit:'grs',  type:'normal',   section:'Pesos & Dimensiones',     isText:false },
+  { id:1,  sp:'P01_PesoLlenar',           name:'Peso a llenar (piezas + rebosaderos)', spec:'592 grs',       min:582,  max:602,  tol:'±10', unit:'grs',  type:'normal',   section:'Pesos & Dimensiones',     isText:false },
+  { id:2,  sp:'P02_PesoColada',           name:'Peso de la colada',                    spec:'274 grs',       min:264,  max:284,  tol:'±10', unit:'grs',  type:'normal',   section:'Pesos & Dimensiones',     isText:false },
   { id:3,  sp:'P03_SuperficieParticion',  name:'Superficie en plano de partición',     spec:'N/A',           min:null, max:null, unit:'',     type:'normal',   section:'Pesos & Dimensiones',     isText:true  },
-  { id:4,  sp:'P04_AreaGate',             name:'Área de gate',                         spec:'86 mm²',        min:80,   max:92,   unit:'mm²',  type:'normal',   section:'Pesos & Dimensiones',     isText:false },
+  { id:4,  sp:'P04_AreaGate',             name:'Área de gate',                         spec:'86 mm²',        min:80,   max:92,   tol:'±6', unit:'mm²',  type:'normal',   section:'Pesos & Dimensiones',     isText:false },
   { id:5,  sp:'P05_TiempoLlenado',        name:'Tiempo de llenado',                    spec:'11–18 ms',      min:11,   max:18,   unit:'ms',   type:'critical', section:'Tiempos',                 isText:false },
-  { id:6,  sp:'P06_InicioSegundaFase',    name:'Inicio segunda fase',                  spec:'30 mm',         min:28,   max:32,   unit:'mm',   type:'security', section:'Tiempos',                 isText:false },
+  { id:6,  sp:'P06_InicioSegundaFase',    name:'Inicio segunda fase',                  spec:'30 mm',         min:28,   max:32,   tol:'±2', unit:'mm',   type:'security', section:'Tiempos',                 isText:false },
   { id:7,  sp:'P07_CarreraPiston',        name:'Carrera de pistón',                    spec:'Máx 120 mm',    min:0,    max:120,  unit:'mm',   type:'security', section:'Tiempos',                 isText:false },
   { id:8,  sp:'P08_TiempoInyeccion',      name:'Tiempo de inyección',                  spec:'6–8 s',         min:6,    max:8,    unit:'s',    type:'normal',   section:'Tiempos',                 isText:false },
   { id:9,  sp:'P09_TiempoEnfriamiento',   name:'Tiempo de enfriamiento',               spec:'6–8 s',         min:6,    max:8,    unit:'s',    type:'normal',   section:'Tiempos',                 isText:false },
@@ -528,7 +608,7 @@ const PARAMS = [
   { id:17, sp:'P17_TempThermocast1',      name:'Temperatura Thermocast Sist #1',       spec:'150–165 °C',    min:150,  max:165,  unit:'°C',   type:'critical', section:'Temperaturas',            isText:false },
   { id:18, sp:'P18_TempThermocast2',      name:'Temperatura Thermocast Sist #2',       spec:'150–165 °C',    min:150,  max:165,  unit:'°C',   type:'critical', section:'Temperaturas',            isText:false },
   { id:19, sp:'P19_Absorbancia',          name:'Absorbancia del desmoldante',          spec:'3.50–3.90',     min:3.50, max:3.90, unit:'abs',  type:'lat',      section:'Desmoldante & Cierre',    isText:false },
-  { id:20, sp:'P20_AjusteCierre',         name:'Ajuste de cierre',                     spec:'2.5 s',         min:2.3,  max:2.7,  unit:'s',    type:'security', section:'Desmoldante & Cierre',    isText:false },
+  { id:20, sp:'P20_AjusteCierre',         name:'Ajuste de cierre',                     spec:'2.5 s',         min:2.3,  max:2.7,  tol:'±0.2', unit:'s',    type:'security', section:'Desmoldante & Cierre',    isText:false },
   { id:21, sp:'P21_TiempoCiclo',          name:'Tiempo de ciclo',                      spec:'26–28 s',       min:26,   max:28,   unit:'s',    type:'normal',   section:'Desmoldante & Cierre',    isText:false },
   { id:22, sp:'P22_TempPiezas',           name:'Temperatura de piezas',                spec:'10–38 °C',      min:10,   max:38,   unit:'°C',   type:'security', section:'Desmoldante & Cierre',    isText:false },
   { id:23, sp:'P23_PresionTC1',           name:'Presión Thermocast Sist 1',            spec:'5–7 bar',       min:5,    max:7,    unit:'bar',  type:'critical', section:'Presiones Thermocast',    isText:false },
@@ -557,6 +637,8 @@ let spOnline = false;
     await ensureToken(false);
     spOnline = await checkSP();
     await loadFieldMap();   // mapea Title → internal name real
+    await loadSpecs();      // trae rangos/tolerancias de la lista (si existe)
+    renderParams();         // re-render con las specs actualizadas
     loadCatalogs();
   } catch (e) {
     // No hay sesión: muestra botón de login
@@ -582,6 +664,8 @@ function showLoginButton() {
       btn.remove();
       await checkSP();
       await loadFieldMap();
+      await loadSpecs();
+      renderParams();
       loadCatalogs();
       showToast('✓ Sesión iniciada', 'ok');
     } catch (e) {
@@ -740,13 +824,12 @@ function renderParams() {
       html += `
         <div class="p-row ${tc}">
           <div class="p-num">${String(p.id).padStart(2,'0')}</div>
-          <div>
-            <div class="p-name">${p.name}</div>
-            ${badge ? `<div class="p-tags">${badge}</div>` : ''}
+          <div class="p-namewrap">
+            <span class="p-name">${p.name}</span>
+            ${badge ? `<span class="p-tags">${badge}</span>` : ''}
           </div>
           <div>
-            <div class="p-spec">${p.spec}</div>
-            ${p.unit ? `<div class="p-unit">${p.unit}</div>` : ''}
+            <span class="p-spec">${p.spec}</span>${p.tol ? `<span class="p-tol">${p.tol}</span>` : ''}
           </div>
           <input class="p-inp" id="inp-p${p.id}" type="text"
             inputmode="${p.isText ? 'text' : 'decimal'}"
@@ -780,9 +863,24 @@ function renderParams() {
 function validateInput(el) {
   const pid = parseInt(el.dataset.id);
   const p   = PARAMS.find(x => x.id === pid);
-  const val = el.value.trim();
   const dot = document.getElementById(`dot-p${pid}`);
 
+  // ── Forzar solo números en campos numéricos ──
+  if (!p.isText) {
+    // permite dígitos, un punto/coma decimal, y signo negativo al inicio
+    let cleaned = el.value.replace(/[^0-9.,\-]/g, '');
+    // solo un separador decimal
+    cleaned = cleaned.replace(',', '.');
+    const parts = cleaned.split('.');
+    if (parts.length > 2) cleaned = parts[0] + '.' + parts.slice(1).join('');
+    if (cleaned !== el.value) {
+      const pos = el.selectionStart - (el.value.length - cleaned.length);
+      el.value = cleaned;
+      try { el.setSelectionRange(pos, pos); } catch(_) {}
+    }
+  }
+
+  const val = el.value.trim();
   el.classList.remove('ok', 'err');
   dot.classList.remove('ok', 'err');
   if (!val) { updateProgress(); return; }
@@ -887,7 +985,7 @@ function collectData() {
     Inyector:       getVal('f-inyector') || null,
     Notas:          getVal('f-notas') || null,
     Turno:          turno ? turno.dataset.val : null,
-    Ronda:          ronda ? parseInt(ronda.dataset.val) : null,
+    Ronda:          ronda ? ronda.dataset.val : null,
     Cavidades:      cavStr,
     IngCalidad:     getVal('f-ingcalidad') || null,
     IngManufactura: getVal('f-ingmanufactura') || null,
@@ -948,13 +1046,14 @@ async function saveAudit() {
     await ensureToken(true);  // asegura token (pide login si hace falta)
     const digest = await spDigest();
 
-    // Payload: traduce cada nombre lógico → InternalName real (field_N)
-    // usando el mapa que cargamos de la lista. Title siempre es 'Title'.
+    // Payload: traduce nombre lógico → InternalName real Y convierte
+    // el valor al tipo que la columna espera (según el esquema real).
     const payload = {};
     Object.entries(data).forEach(([k, v]) => {
       if (v === null || v === undefined) return;
       const internal = (k === 'Title') ? 'Title' : fld(k);
-      payload[internal] = v;
+      const val = (k === 'Title') ? String(v) : coerce(k, v);
+      if (val !== null) payload[internal] = val;
     });
 
     const res = await fetch(`${SP_SITE}/_api/web/lists/getbytitle('${SP_LIST}')/items`, {
@@ -1000,8 +1099,39 @@ async function saveAudit() {
 // ═══════════════════════════════════════════════════
 //  TOAST + RESET
 // ═══════════════════════════════════════════════════
-let _tt;
-function showToast(msg, type = 'ok') {
+// ═══════════════════════════════════════════════════
+//  EMITIR PDF (impresión nativa del navegador)
+// ═══════════════════════════════════════════════════
+function emitirPDF() {
+  // Inserta un encabezado temporal con los datos clave para el PDF
+  const maquina = getVal('f-maquina') === '__otra__' ? getVal('f-maquina-otra') : getVal('f-maquina');
+  const fecha = getVal('f-fecha');
+  const turno = (document.querySelector('.pill.on[data-group="turno"]') || {}).textContent || '—';
+  const ronda = (document.querySelector('.pill.on[data-group="ronda"]') || {}).textContent || '—';
+
+  let hdr = document.querySelector('.print-header');
+  if (!hdr) {
+    hdr = document.createElement('div');
+    hdr.className = 'print-header';
+    hdr.style.cssText = 'padding:16px 0; border-bottom:2px solid #F86700; margin-bottom:12px;';
+    document.querySelector('.main').prepend(hdr);
+  }
+  hdr.innerHTML = `
+    <div style="display:flex; align-items:center; gap:14px;">
+      <img src="${document.querySelector('.nav-logo').src}" style="height:34px;">
+      <div>
+        <div style="font-size:16px; font-weight:800; color:#333F48;">Auditoría de Parámetros — Allegion Planta Tecate</div>
+        <div style="font-size:12px; color:#555; margin-top:2px;">
+          Máquina: <b>${maquina||'—'}</b> · No. Parte: <b>${getVal('f-noparte')||'—'}</b> ·
+          Fecha: <b>${fecha||'—'}</b> · ${turno} · ${ronda} ·
+          Inyector: <b>${getVal('f-inyector')||'—'}</b>
+        </div>
+      </div>
+    </div>`;
+  window.print();
+}
+
+
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.className = `toast toast-${type} show`;
