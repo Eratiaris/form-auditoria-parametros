@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Auditoría de Parámetros — Allegion Planta Tecate</title>
+<!-- PWA -->
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#F86700">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Auditoría AP">
 <script>
 /* MSAL incrustado */
 /*! @azure/msal-browser v3.7.1 2024-01-23 */
@@ -709,6 +715,13 @@ let spOnline = false;
 
   // ── 3. MSAL en segundo plano, con timeout, sin bloquear la UI ──
   setTimeout(initMSAL, 100);
+
+  // ── 4. Registra el Service Worker (PWA / offline) ──
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./service-worker.js')
+      .then(() => console.log('[PWA] Service worker registrado'))
+      .catch(e => console.warn('[PWA] SW no registrado:', e.message));
+  }
 })();
 
 async function initMSAL() {
