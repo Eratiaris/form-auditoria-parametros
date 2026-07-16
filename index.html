@@ -1338,7 +1338,7 @@ async function cargarHistorial() {
   body.innerHTML = '<div class="hist-empty">Cargando auditorías…</div>';
   try {
     await ensureToken(true);
-    // selecciona los campos por internal name real
+    // selecciona los campos por internal name real (solo cabecera, ligero)
     const cFecha = fld('FechaAuditoria'), cMaq = fld('Maquina'), cParte = fld('NoParte'),
           cTurno = fld('Turno'), cRonda = fld('Ronda'), cIny = fld('Inyector'), cArea = fld('Area');
     const sel = ['Id','Title',cFecha,cMaq,cParte,cTurno,cRonda,cIny,cArea].join(',');
@@ -1437,8 +1437,8 @@ function renderHistorial(data) {
   });
   body.innerHTML = html;
 }
-function imprimirHistorialDia() {
-  // Toma lo que está filtrado actualmente y arma un reporte limpio
+async function imprimirHistorialDia() {
+  // Toma lo que está filtrado actualmente
   const fMes = document.getElementById('hist-mes').value;
   const fFecha = document.getElementById('hist-fecha').value;
   const fMaq = document.getElementById('hist-maq').value;
@@ -1453,65 +1453,161 @@ function imprimirHistorialDia() {
 
   if (!data.length) { showToast('No hay auditorías para imprimir con el filtro actual.', 'info'); return; }
 
-  // Descripción del filtro para el encabezado
-  let filtroDesc = [];
-  if (fFecha) filtroDesc.push('Día: ' + new Date(fFecha+'T12:00:00').toLocaleDateString('es-MX'));
-  else if (fMes) { const [y,m]=fMes.split('-'); filtroDesc.push('Mes: ' + new Date(y,m-1,1).toLocaleDateString('es-MX',{month:'long',year:'numeric'})); }
-  if (fMaq) filtroDesc.push('Máquina: ' + fMaq);
-  if (fParte) filtroDesc.push('Parte: ' + fParte);
-  if (fIny) filtroDesc.push('Inyector: ' + fIny);
-  const filtroTxt = filtroDesc.length ? filtroDesc.join(' · ') : 'Todos los registros';
+  // Aviso si son demasiadas (el reporte detallado es 1 tabla por grupo día+máquina+parte)
+  if (data.length > 40) {
+    if (!confirm(`Vas a generar un reporte detallado de ${data.length} auditorías. Puede tardar y salir largo.\n\nSugerencia: filtra por un día o una máquina específica.\n\n¿Continuar de todas formas?`)) return;
+  }
 
-  // Agrupa por día
-  const groups = {};
-  data.forEach(h => { const d=(h.fecha||'').split('T')[0]||'Sin fecha'; (groups[d]=groups[d]||[]).push(h); });
-  const dias = Object.keys(groups).sort().reverse();
+  showToast('Generando reporte…', 'info');
+  document.getElementById('overlay').classList.add('show');
 
-  let cuerpo = '';
-  dias.forEach(dia => {
-    const fb = dia!=='Sin fecha' ? new Date(dia+'T12:00:00').toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'}) : dia;
-    cuerpo += `<div class="pr-day">${fb.charAt(0).toUpperCase()+fb.slice(1)} · ${groups[dia].length} auditoría(s)</div>
-      <table class="pr-tbl"><thead><tr>
-      <th>Máquina</th><th>No. Parte</th><th>Turno</th><th>Ronda</th><th>Inyector</th><th>Área</th></tr></thead><tbody>`;
-    groups[dia].sort((a,b)=>(a.turno||'').localeCompare(b.turno||'')).forEach(h=>{
-      cuerpo += `<tr><td><b>${h.maquina||'—'}</b></td><td>${h.parte||'—'}</td><td>${h.turno||'—'}</td><td>${h.ronda||'—'}</td><td>${h.inyector||'—'}</td><td>${h.area||'—'}</td></tr>`;
+  try {
+    // ── Trae los 27 parámetros SOLO de las auditorías filtradas (bajo demanda) ──
+    await ensureToken(true);
+    const ids = data.map(d => d.id);
+    const pCols = PARAMS.map(p => fld(p.sp));
+    const cTurno = fld('Turno'), cRonda = fld('Ronda');
+    // trae en lotes por si son muchas (filtro por Id)
+    const detalle = {};
+    for (let i = 0; i < ids.length; i += 20) {
+      const lote = ids.slice(i, i+20);
+      const filtro = lote.map(id => `Id eq ${id}`).join(' or ');
+      const sel = ['Id',cTurno,cRonda, ...pCols].join(',');
+      const res = await fetch(
+        `${SP_SITE}/_api/web/lists/getbytitle('${SP_LIST}')/items?$select=${sel}&$filter=${encodeURIComponent(filtro)}&$top=100`,
+        { headers: spHeaders() }
+      );
+      if (res.ok) {
+        (await res.json()).value.forEach(it => { detalle[it.Id] = it; });
+      }
+    }
+
+    // ── Agrupa por día + máquina + parte ──
+    const groups = {};
+    data.forEach(h => {
+      const key = `${(h.fecha||'').split('T')[0]}||${h.maquina||''}||${h.parte||''}`;
+      (groups[key] = groups[key] || []).push(h);
     });
-    cuerpo += `</tbody></table>`;
-  });
 
-  const logo = document.querySelector('.nav-logo').src;
-  const win = window.open('', '_blank');
-  win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
-    <title>Reporte de Auditorías — Allegion Tecate</title>
-    <style>
-      * { box-sizing:border-box; margin:0; padding:0; }
-      body { font-family:'Segoe UI',Arial,sans-serif; color:#22292E; padding:28px; }
-      .pr-hdr { display:flex; align-items:center; gap:16px; border-bottom:3px solid #F86700; padding-bottom:14px; margin-bottom:6px; }
-      .pr-hdr img { height:38px; }
-      .pr-title { font-size:18px; font-weight:800; color:#333F48; }
-      .pr-meta { font-size:11px; color:#666; margin-top:3px; }
-      .pr-filtro { font-size:12px; color:#333; margin:10px 0 18px; padding:8px 12px; background:#FFF1E6; border-left:3px solid #F86700; border-radius:4px; }
-      .pr-day { font-size:13px; font-weight:800; color:#333F48; margin:16px 0 6px; padding:5px 10px; background:#F5F7F9; border-left:3px solid #F86700; }
-      .pr-tbl { width:100%; border-collapse:collapse; font-size:11px; margin-bottom:8px; }
-      .pr-tbl th { background:#333F48; color:#fff; font-size:9px; text-transform:uppercase; letter-spacing:.04em; padding:6px 8px; text-align:left; }
-      .pr-tbl td { padding:5px 8px; border-bottom:1px solid #ddd; }
-      .pr-tbl tr:nth-child(even) td { background:#FAFBFC; }
-      .pr-foot { margin-top:20px; font-size:10px; color:#999; text-align:center; border-top:1px solid #ddd; padding-top:10px; }
-      @media print { body { padding:0; } }
-    </style></head><body>
-    <div class="pr-hdr">
-      <img src="${logo}">
-      <div>
-        <div class="pr-title">Reporte de Auditoría de Parámetros</div>
-        <div class="pr-meta">Allegion Planta Tecate · Generado ${new Date().toLocaleString('es-MX')}</div>
+    // Orden de turnos como en el papel
+    const ordenTurno = t => {
+      const m = { '1T':1, '2T':2, '3T':3, '4T':4 };
+      const k = (t||'').slice(0,2);
+      return m[k] || 9;
+    };
+
+    let cuerpo = '';
+    Object.keys(groups).sort().reverse().forEach(key => {
+      const [dia, maq, parte] = key.split('||');
+      const auds = groups[key].sort((a,b) => ordenTurno(a.turno) - ordenTurno(b.turno));
+      const fb = dia ? new Date(dia+'T12:00:00').toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'}) : 'Sin fecha';
+
+      // Columnas = una por auditoría (turno) de este grupo
+      const cols = auds.map(a => {
+        const d = detalle[a.id] || {};
+        const turnoLbl = a.turno || '—';
+        return { aud: a, det: d, turnoLbl };
+      });
+
+      cuerpo += `<div class="pr-group">
+        <div class="pr-ghdr">${fb.charAt(0).toUpperCase()+fb.slice(1)}</div>
+        <div class="pr-gmeta">Máquina: <b>${maq||'—'}</b> · No. Parte: <b>${parte||'—'}</b> · Inyector: <b>${auds[0].inyector||'—'}</b> · Área: <b>${auds[0].area||'—'}</b></div>
+        <table class="pr-tbl">
+          <thead><tr>
+            <th class="pr-pnum">#</th>
+            <th class="pr-pname">Parámetro</th>
+            <th class="pr-pspec">Especificación</th>
+            ${cols.map(c => `<th class="pr-pval">${c.turnoLbl}${c.aud.ronda?` · R${c.aud.ronda}`:''}</th>`).join('')}
+          </tr></thead>
+          <tbody>`;
+
+      let curSec = '';
+      PARAMS.forEach(p => {
+        if (p.section !== curSec) {
+          curSec = p.section;
+          cuerpo += `<tr class="pr-sec"><td colspan="${3+cols.length}">${curSec}</td></tr>`;
+        }
+        const specTxt = p.spec + (p.tol ? ` ${p.tol}` : '');
+        const tag = p.type==='critical'?' <span class="pr-tag pr-crit">C</span>':p.type==='security'?' <span class="pr-tag pr-seg">S</span>':p.type==='lat'?' <span class="pr-tag pr-lat">L</span>':'';
+        cuerpo += `<tr>
+          <td class="pr-pnum">${String(p.id).padStart(2,'0')}</td>
+          <td class="pr-pname">${p.name}${tag}</td>
+          <td class="pr-pspec">${specTxt}</td>`;
+        cols.forEach(c => {
+          const raw = c.det[fld(p.sp)];
+          let cls = 'pr-val';
+          let disp = (raw===null||raw===undefined||raw==='') ? '—' : raw;
+          if (!p.isText && raw!==null && raw!==undefined && raw!=='') {
+            const n = parseFloat(raw);
+            if (!isNaN(n) && p.min!==null) {
+              cls += (n >= p.min && n <= p.max) ? ' pr-ok' : ' pr-bad';
+            }
+          }
+          cuerpo += `<td class="${cls}">${disp}</td>`;
+        });
+        cuerpo += `</tr>`;
+      });
+      cuerpo += `</tbody></table></div>`;
+    });
+
+    // Descripción del filtro
+    let fd = [];
+    if (fFecha) fd.push('Día: ' + new Date(fFecha+'T12:00:00').toLocaleDateString('es-MX'));
+    else if (fMes) { const [y,m]=fMes.split('-'); fd.push('Mes: ' + new Date(y,m-1,1).toLocaleDateString('es-MX',{month:'long',year:'numeric'})); }
+    if (fMaq) fd.push('Máquina: ' + fMaq);
+    if (fParte) fd.push('Parte: ' + fParte);
+    if (fIny) fd.push('Inyector: ' + fIny);
+    const filtroTxt = fd.length ? fd.join(' · ') : 'Todos los registros';
+
+    const logo = document.querySelector('.nav-logo').src;
+    const win = window.open('', '_blank');
+    win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+      <title>Reporte de Auditoría de Parámetros — Allegion Tecate</title>
+      <style>
+        * { box-sizing:border-box; margin:0; padding:0; }
+        body { font-family:'Segoe UI',Arial,sans-serif; color:#22292E; padding:24px; font-size:11px; }
+        .pr-hdr { display:flex; align-items:center; gap:16px; border-bottom:3px solid #F86700; padding-bottom:12px; margin-bottom:8px; }
+        .pr-hdr img { height:34px; }
+        .pr-title { font-size:17px; font-weight:800; color:#333F48; }
+        .pr-meta { font-size:10px; color:#666; margin-top:2px; }
+        .pr-filtro { font-size:11px; color:#333; margin:8px 0 14px; padding:7px 11px; background:#FFF1E6; border-left:3px solid #F86700; border-radius:4px; }
+        .pr-group { margin-bottom:22px; page-break-inside:avoid; }
+        .pr-ghdr { font-size:13px; font-weight:800; color:#333F48; text-transform:capitalize; }
+        .pr-gmeta { font-size:11px; color:#555; margin:2px 0 8px; }
+        .pr-tbl { width:100%; border-collapse:collapse; }
+        .pr-tbl th { background:#333F48; color:#fff; font-size:9px; text-transform:uppercase; letter-spacing:.03em; padding:5px 6px; text-align:left; }
+        .pr-tbl td { padding:3px 6px; border-bottom:1px solid #e5e5e5; font-size:10px; }
+        .pr-pnum { width:24px; text-align:center !important; color:#999; }
+        .pr-pname { min-width:180px; }
+        .pr-pspec { width:110px; color:#555; font-weight:600; }
+        .pr-pval, .pr-val { width:70px; text-align:center !important; font-weight:700; }
+        .pr-sec td { background:#F5F7F9 !important; color:#F86700; font-weight:800; font-size:8px; text-transform:uppercase; letter-spacing:.06em; padding:4px 6px; }
+        .pr-ok { color:#1A7A38; }
+        .pr-bad { color:#C8102E; background:#FDEBEC; }
+        .pr-tag { display:inline-block; font-size:7px; font-weight:800; padding:1px 4px; border-radius:6px; color:#fff; vertical-align:middle; }
+        .pr-crit { background:#C8102E; } .pr-seg { background:#F86700; } .pr-lat { background:#7C3AED; }
+        .pr-foot { margin-top:16px; font-size:9px; color:#999; text-align:center; border-top:1px solid #ddd; padding-top:8px; }
+        @media print { body { padding:0; } .pr-group { page-break-inside:avoid; } }
+      </style></head><body>
+      <div class="pr-hdr">
+        <img src="${logo}">
+        <div>
+          <div class="pr-title">Reporte de Auditoría de Parámetros</div>
+          <div class="pr-meta">Allegion Planta Tecate · Generado ${new Date().toLocaleString('es-MX')}</div>
+        </div>
       </div>
-    </div>
-    <div class="pr-filtro"><b>Filtro:</b> ${filtroTxt} · <b>${data.length}</b> auditoría(s)</div>
-    ${cuerpo}
-    <div class="pr-foot">Allegion Planta Tecate — Reporte generado desde la app de Auditoría de Parámetros</div>
-    </body></html>`);
-  win.document.close();
-  setTimeout(() => { win.print(); }, 400);
+      <div class="pr-filtro"><b>Filtro:</b> ${filtroTxt} · <b>${data.length}</b> auditoría(s) · C=Crítico S=Seguridad L=LAT · <span style="color:#1A7A38">verde</span>=en spec <span style="color:#C8102E">rojo</span>=fuera</div>
+      ${cuerpo}
+      <div class="pr-foot">Allegion Planta Tecate — Reporte generado desde la app de Auditoría de Parámetros</div>
+      </body></html>`);
+    win.document.close();
+    document.getElementById('overlay').classList.remove('show');
+    setTimeout(() => { win.print(); }, 500);
+  } catch (e) {
+    document.getElementById('overlay').classList.remove('show');
+    showToast('Error al generar el reporte: ' + e.message, 'err');
+    console.error('[Reporte]', e);
+  }
 }
 
 // ═══════════════════════════════════════════════════

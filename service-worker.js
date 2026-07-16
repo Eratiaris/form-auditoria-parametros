@@ -1,23 +1,25 @@
 // ═══════════════════════════════════════════════════
 //  Service Worker — Auditoría de Parámetros Allegion
 //  Permite que la app abra sin internet (cachea el HTML).
+//
+//  ⚠ IMPORTANTE: cada vez que actualices index.html,
+//  sube el número de versión (v1 → v2 → v3...) para que
+//  los dispositivos tomen la nueva versión automáticamente.
 // ═══════════════════════════════════════════════════
-const CACHE = 'allegion-auditoria-v1';
+const CACHE = 'allegion-auditoria-v2';   // ← SUBE ESTE NÚMERO al actualizar
 const ASSETS = [
   './',
   './index.html',
   './manifest.json'
 ];
 
-// Instala: cachea los archivos base
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE).then((c) => c.addAll(ASSETS)).catch(() => {})
   );
-  self.skipWaiting();
+  self.skipWaiting();  // activa la nueva versión de inmediato
 });
 
-// Activa: limpia cachés viejos
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) =>
@@ -27,27 +29,36 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 
-// Fetch: estrategia network-first para las llamadas a SharePoint,
-// cache-first para los archivos de la app (para abrir offline).
 self.addEventListener('fetch', (e) => {
   const url = e.request.url;
 
   // Nunca cachear llamadas a SharePoint / Microsoft (siempre red)
   if (url.includes('sharepoint.com') || url.includes('microsoftonline.com') ||
       url.includes('microsoft.com') || e.request.method !== 'GET') {
-    return; // deja pasar a la red normal
+    return;
   }
 
-  // Archivos de la app: intenta caché primero, luego red
-  e.respondWith(
-    caches.match(e.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(e.request).then((res) => {
-        // guarda en caché para la próxima
+  // Para el HTML: NETWORK-FIRST (siempre intenta traer la última versión,
+  // usa caché solo si no hay internet). Esto evita quedarse con versión vieja.
+  if (e.request.mode === 'navigate' || url.endsWith('.html') || url.endsWith('/')) {
+    e.respondWith(
+      fetch(e.request).then((res) => {
         const clone = res.clone();
         caches.open(CACHE).then((c) => c.put(e.request, clone)).catch(() => {});
         return res;
-      }).catch(() => cached);
-    })
+      }).catch(() => caches.match(e.request))
+    );
+    return;
+  }
+
+  // Otros archivos: cache-first
+  e.respondWith(
+    caches.match(e.request).then((cached) =>
+      cached || fetch(e.request).then((res) => {
+        const clone = res.clone();
+        caches.open(CACHE).then((c) => c.put(e.request, clone)).catch(() => {});
+        return res;
+      }).catch(() => cached)
+    )
   );
 });
