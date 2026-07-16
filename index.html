@@ -286,13 +286,6 @@ input.firma-sel { cursor:text; background-image:none; padding-right:10px; }
 .pending-bar button { margin-left:auto; background:#854800; color:#fff; border:none; border-radius:5px; padding:5px 12px; font-size:11px; font-weight:700; cursor:pointer; font-family:inherit; }
 .pending-bar button:hover { background:#6b3a00; }
 
-@media print {
-  .hist-overlay, .hist-overlay * { visibility:visible; }
-  .hist-overlay { position:absolute; background:#fff; display:block; padding:0; }
-  .hist-modal { max-height:none; box-shadow:none; max-width:none; }
-  .hist-head, .hist-filters, .hist-close { display:none !important; }
-}
-
 /* ── RESPONSIVE ── */
 @media (max-width:840px) {
   .layout { grid-template-columns:1fr; }
@@ -356,11 +349,20 @@ input.firma-sel { cursor:text; background-image:none; padding-right:10px; }
       <button class="hist-close" onclick="cerrarHistorial()">✕</button>
     </div>
     <div class="hist-filters">
-      <input type="date" class="hist-fdate" id="hist-fecha" onchange="filtrarHistorial()">
+      <select class="hist-fsel" id="hist-mes" onchange="filtrarHistorial()">
+        <option value="">Todos los meses</option>
+      </select>
+      <input type="date" class="hist-fdate" id="hist-fecha" onchange="filtrarHistorial()" title="Día específico">
       <select class="hist-fsel" id="hist-maq" onchange="filtrarHistorial()">
         <option value="">Todas las máquinas</option>
       </select>
-      <button class="hist-btn-print" onclick="imprimirHistorialDia()">🖨️ Imprimir día</button>
+      <select class="hist-fsel" id="hist-parte" onchange="filtrarHistorial()">
+        <option value="">Todas las partes</option>
+      </select>
+      <select class="hist-fsel" id="hist-iny" onchange="filtrarHistorial()">
+        <option value="">Todos los inyectores</option>
+      </select>
+      <button class="hist-btn-print" onclick="imprimirHistorialDia()">🖨️ Imprimir</button>
       <button class="hist-btn-refresh" onclick="cargarHistorial()">↻ Actualizar</button>
     </div>
     <div class="hist-body" id="hist-body">
@@ -1356,23 +1358,49 @@ async function cargarHistorial() {
       inyector: it[cIny],
       area: it[cArea],
     }));
-    // llena filtro de máquinas
+    // llena filtros
     const maqs = [...new Set(HIST_DATA.map(h => h.maquina).filter(Boolean))].sort();
-    const selMaq = document.getElementById('hist-maq');
-    selMaq.innerHTML = '<option value="">Todas las máquinas</option>' +
+    document.getElementById('hist-maq').innerHTML = '<option value="">Todas las máquinas</option>' +
       maqs.map(m => `<option>${m}</option>`).join('');
-    sub.textContent = `${HIST_DATA.length} auditorías`;
+    const partes = [...new Set(HIST_DATA.map(h => h.parte).filter(Boolean))].sort();
+    document.getElementById('hist-parte').innerHTML = '<option value="">Todas las partes</option>' +
+      partes.map(m => `<option>${m}</option>`).join('');
+    const inys = [...new Set(HIST_DATA.map(h => h.inyector).filter(Boolean))].sort();
+    document.getElementById('hist-iny').innerHTML = '<option value="">Todos los inyectores</option>' +
+      inys.map(m => `<option>${m}</option>`).join('');
+    // filtro de meses (YYYY-MM) presentes en los datos
+    const meses = [...new Set(HIST_DATA.map(h => (h.fecha||'').slice(0,7)).filter(Boolean))].sort().reverse();
+    const mesActual = new Date().toISOString().slice(0,7);
+    const selMes = document.getElementById('hist-mes');
+    selMes.innerHTML = '<option value="">Todos los meses</option>' +
+      meses.map(m => {
+        const [y,mm] = m.split('-');
+        const nom = new Date(y, mm-1, 1).toLocaleDateString('es-MX', {month:'long', year:'numeric'});
+        return `<option value="${m}">${nom.charAt(0).toUpperCase()+nom.slice(1)}</option>`;
+      }).join('');
+    // por defecto: mes actual (si hay datos de este mes)
+    if (meses.includes(mesActual)) selMes.value = mesActual;
+
+    sub.textContent = `${HIST_DATA.length} auditorías en total`;
     filtrarHistorial();
   } catch (e) {
     body.innerHTML = `<div class="hist-empty">Error al cargar: ${e.message}<br><br>Inicia sesión e intenta de nuevo.</div>`;
   }
 }
 function filtrarHistorial() {
+  const fMes = document.getElementById('hist-mes').value;
   const fFecha = document.getElementById('hist-fecha').value;
   const fMaq = document.getElementById('hist-maq').value;
+  const fParte = document.getElementById('hist-parte').value;
+  const fIny = document.getElementById('hist-iny').value;
   let data = HIST_DATA.slice();
-  if (fFecha) data = data.filter(h => (h.fecha || '').startsWith(fFecha));
-  if (fMaq) data = data.filter(h => h.maquina === fMaq);
+  if (fFecha)      data = data.filter(h => (h.fecha || '').startsWith(fFecha));
+  else if (fMes)   data = data.filter(h => (h.fecha || '').startsWith(fMes));
+  if (fMaq)   data = data.filter(h => h.maquina === fMaq);
+  if (fParte) data = data.filter(h => h.parte === fParte);
+  if (fIny)   data = data.filter(h => h.inyector === fIny);
+  document.getElementById('hist-sub').textContent =
+    `${data.length} auditoría(s) mostradas · ${HIST_DATA.length} en total`;
   renderHistorial(data);
 }
 function renderHistorial(data) {
@@ -1410,12 +1438,80 @@ function renderHistorial(data) {
   body.innerHTML = html;
 }
 function imprimirHistorialDia() {
+  // Toma lo que está filtrado actualmente y arma un reporte limpio
+  const fMes = document.getElementById('hist-mes').value;
   const fFecha = document.getElementById('hist-fecha').value;
-  if (!fFecha) {
-    showToast('Selecciona un día en el filtro de fecha para imprimir.', 'info');
-    return;
-  }
-  window.print();
+  const fMaq = document.getElementById('hist-maq').value;
+  const fParte = document.getElementById('hist-parte').value;
+  const fIny = document.getElementById('hist-iny').value;
+  let data = HIST_DATA.slice();
+  if (fFecha)      data = data.filter(h => (h.fecha || '').startsWith(fFecha));
+  else if (fMes)   data = data.filter(h => (h.fecha || '').startsWith(fMes));
+  if (fMaq)   data = data.filter(h => h.maquina === fMaq);
+  if (fParte) data = data.filter(h => h.parte === fParte);
+  if (fIny)   data = data.filter(h => h.inyector === fIny);
+
+  if (!data.length) { showToast('No hay auditorías para imprimir con el filtro actual.', 'info'); return; }
+
+  // Descripción del filtro para el encabezado
+  let filtroDesc = [];
+  if (fFecha) filtroDesc.push('Día: ' + new Date(fFecha+'T12:00:00').toLocaleDateString('es-MX'));
+  else if (fMes) { const [y,m]=fMes.split('-'); filtroDesc.push('Mes: ' + new Date(y,m-1,1).toLocaleDateString('es-MX',{month:'long',year:'numeric'})); }
+  if (fMaq) filtroDesc.push('Máquina: ' + fMaq);
+  if (fParte) filtroDesc.push('Parte: ' + fParte);
+  if (fIny) filtroDesc.push('Inyector: ' + fIny);
+  const filtroTxt = filtroDesc.length ? filtroDesc.join(' · ') : 'Todos los registros';
+
+  // Agrupa por día
+  const groups = {};
+  data.forEach(h => { const d=(h.fecha||'').split('T')[0]||'Sin fecha'; (groups[d]=groups[d]||[]).push(h); });
+  const dias = Object.keys(groups).sort().reverse();
+
+  let cuerpo = '';
+  dias.forEach(dia => {
+    const fb = dia!=='Sin fecha' ? new Date(dia+'T12:00:00').toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'}) : dia;
+    cuerpo += `<div class="pr-day">${fb.charAt(0).toUpperCase()+fb.slice(1)} · ${groups[dia].length} auditoría(s)</div>
+      <table class="pr-tbl"><thead><tr>
+      <th>Máquina</th><th>No. Parte</th><th>Turno</th><th>Ronda</th><th>Inyector</th><th>Área</th></tr></thead><tbody>`;
+    groups[dia].sort((a,b)=>(a.turno||'').localeCompare(b.turno||'')).forEach(h=>{
+      cuerpo += `<tr><td><b>${h.maquina||'—'}</b></td><td>${h.parte||'—'}</td><td>${h.turno||'—'}</td><td>${h.ronda||'—'}</td><td>${h.inyector||'—'}</td><td>${h.area||'—'}</td></tr>`;
+    });
+    cuerpo += `</tbody></table>`;
+  });
+
+  const logo = document.querySelector('.nav-logo').src;
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+    <title>Reporte de Auditorías — Allegion Tecate</title>
+    <style>
+      * { box-sizing:border-box; margin:0; padding:0; }
+      body { font-family:'Segoe UI',Arial,sans-serif; color:#22292E; padding:28px; }
+      .pr-hdr { display:flex; align-items:center; gap:16px; border-bottom:3px solid #F86700; padding-bottom:14px; margin-bottom:6px; }
+      .pr-hdr img { height:38px; }
+      .pr-title { font-size:18px; font-weight:800; color:#333F48; }
+      .pr-meta { font-size:11px; color:#666; margin-top:3px; }
+      .pr-filtro { font-size:12px; color:#333; margin:10px 0 18px; padding:8px 12px; background:#FFF1E6; border-left:3px solid #F86700; border-radius:4px; }
+      .pr-day { font-size:13px; font-weight:800; color:#333F48; margin:16px 0 6px; padding:5px 10px; background:#F5F7F9; border-left:3px solid #F86700; }
+      .pr-tbl { width:100%; border-collapse:collapse; font-size:11px; margin-bottom:8px; }
+      .pr-tbl th { background:#333F48; color:#fff; font-size:9px; text-transform:uppercase; letter-spacing:.04em; padding:6px 8px; text-align:left; }
+      .pr-tbl td { padding:5px 8px; border-bottom:1px solid #ddd; }
+      .pr-tbl tr:nth-child(even) td { background:#FAFBFC; }
+      .pr-foot { margin-top:20px; font-size:10px; color:#999; text-align:center; border-top:1px solid #ddd; padding-top:10px; }
+      @media print { body { padding:0; } }
+    </style></head><body>
+    <div class="pr-hdr">
+      <img src="${logo}">
+      <div>
+        <div class="pr-title">Reporte de Auditoría de Parámetros</div>
+        <div class="pr-meta">Allegion Planta Tecate · Generado ${new Date().toLocaleString('es-MX')}</div>
+      </div>
+    </div>
+    <div class="pr-filtro"><b>Filtro:</b> ${filtroTxt} · <b>${data.length}</b> auditoría(s)</div>
+    ${cuerpo}
+    <div class="pr-foot">Allegion Planta Tecate — Reporte generado desde la app de Auditoría de Parámetros</div>
+    </body></html>`);
+  win.document.close();
+  setTimeout(() => { win.print(); }, 400);
 }
 
 // ═══════════════════════════════════════════════════
